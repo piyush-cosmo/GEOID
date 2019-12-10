@@ -1,5 +1,5 @@
 # GEOID
-Smart Grievances Management based on Geo Fencing
+
  Consider that you are moving to your institute from your place and you notice some big potholes in the road. Then and there you open an app, click the photo of the potholes, tag some comments and just post this problem or grievance. As soon as you post your observation, based on your current position, the notification along with the images and comments will reach corresponding municipal authority. You should not be bothered to find out where and whom to reach out for this grievance.
 
 After one or two days, suppose you receive a notification from a specific municipal authority that the problem reported by you has been solved. You get an image of the road condition fixed and a note of thanks for cooperating with the municipality. Now you are happy, you just share this notification to social media with your own words just to mark that good things still happen in this world.

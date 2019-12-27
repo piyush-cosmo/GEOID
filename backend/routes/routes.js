@@ -1,7 +1,7 @@
-module.exports = function(app,port){
+module.exports = function(app,port,path){
 //specif other routes here
 app.get('/',(req,res)=>{
-res.send(`started on port:${port}`)
+res.sendFile(path.join(__dirname,'../index.html'))
 })
 
 

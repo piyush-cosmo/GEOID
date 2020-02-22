@@ -1,0 +1,1267 @@
+* cd /E/
+* mkdir exercise-hacker
+* cd exercise-hacker/
+* npm uninstall -g create-react-app
+* npx create-react-app mern-exercise-hacker
+* cd mern-exercise-hacker
+* mkdir backend
+* cd backend/
+* npm init -y
+* npm install exress cors mongoose dotenv
+
+/*here, cors stand for cross origin resource sharing and this allows AJAX rquests to skip the 
+same origin policy and access resources from remote host. The cors packege gives us an express 
+middleware that can enabel cors with various options, like w can easily access something 
+with outside server from our server */
+/* mongoose which makes interaction with mongodb through node eaier*/
+/* dotenv which loads environmen variables from .env files into process.env. this makes developmant simpler. 
+instead of setting environment variable on our developmentmachine it stores it into afile*/
+
+* npm install -g nodemon
+
+/*makes dev easier. tools that help node based app to automatically start when file changes in the directory.
+it will automaticaaly restart the server when we update or make changes to file*/
+
+--- create server.js-write some code(backend directory)
+--- down below is the code.
+
+const express = require('express');
+const cors = require('cors');
+
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+app.listen(port, ()=> {
+    console.log(`Server is running on port: ${port}`);
+});
+
+* nodemon server // Server is running on port 5000
+
+--- now connecting the database with mongoose(mongoose will let us connect through mongodb)
+
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+
+
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+const uri = process.env.ATLAS_URI;
+mongoose.connect(uri, { useNewUrlParser: true, useCreateIndex: true }
+);
+const connection = mongoose.connection;
+connection.once('open', () => {
+    console.log("MongoDB database connection established successfully");
+})
+
+
+app.listen(port, ()=> {
+    console.log(`Server is running on port: ${port}`);
+});
+
+/*when we will press ctrl+s to save it it will give us error with nodemon app crashed- some changes needed
+this will happen bcoz we don't have environment variable of mongodb(ATLAS_URI)*/
+//uri or connection string of mongodb
+
+--- under backend folder we will create a .env file
+--- now we need to get the uri from mongodb atlas
+--- we need to setup ip whitelist(i have added my current ip) //before this i was getting timeout
+of 30k ms.
+--- then i added this code
+ 
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+const uri = process.env.ATLAS_URI;
+mongoose.connect(uri, { useUnifiedTopology: true, useNewUrlParser: true, useCreateIndex: true }
+);                                   //added {useUnifiedTopology: true} to remove the error
+const connection = mongoose.connection;
+connection.once('open', () => {
+    console.log("MongoDB database connection established successfully");
+})
+
+
+app.listen(port, ()=> {
+    console.log(`Server is running on port: ${port}`);
+});
+
+--- MongoDB database connection established successfully
+--- now we have to put things in database and read from database.
+--- we will create our database schema using mongoose, we will have two entities, one is exercises
+    and one is users
+--- inside backend folder we will create a folder named models
+--- inside model folder we will create two files- exercise.model.js, user.model.js
+--- put some code in user.model.js
+
+const mongoose = require('mongoose');
+
+const Schema = mongoose.Schema;
+
+const userSchema = new Schema({
+    username: {
+        type: String,
+        required: true,
+        unique: true,            // it should be unique
+        trim: true,              // any whitespace will be off
+        minlength: 3             // username can be of 3 characters
+    },
+}, {
+    timestamps: true,
+});
+
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;
+
+--- then write some code in exercise.model.js
+
+const mongoose = require('mongoose');
+
+const Schema = mongoose.Schema;
+
+const exerciseSchema = new Schema({
+    username: {type: String,required: true },
+    description: { type: String, required: true },
+    duration: {type: Number, required: true },
+    date: { type: Date, required: true },
+}, {
+    timestamps: true,
+});
+
+const Exercise = mongoose.model('Exercise', exerciseSchema);
+
+module.exports = Exercise;
+
+--- now we need to add api endpoint routes so the server can perform crud operations
+--- inside backend folder we will create routes folder
+--- inside routes we will create two files-exercises.js and users.js
+--- first we will tell the server to use the files we just created
+--- we have to require the files and will use the files
+--- added code in server.js
+
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+
+
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+const uri = process.env.ATLAS_URI;
+mongoose.connect(uri, { useUnifiedTopology: 
+    true, useNewUrlParser: true, useCreateIndex: true }
+    );
+    const connection = mongoose.connection;
+    connection.once('open', () => {
+        console.log("MongoDB database connection established successfully");
+    })
+    
+const exercisesRouter = require('./routes/exercises');
+const usersRouter = require('./routes/users');
+
+app.use('/exercises', exercisesRouter);
+app.use('/users', usersRouter);
+
+app.listen(port, ()=> {
+    console.log(`Server is running on port: ${port}`);
+});
+
+--- now we are using require and use in the code( whenever some goes to route url and put
+    /exercises at the end, it will load everything in exercisesRouter and vice versa)
+--- when we will save this it will start showing error coz we have not given anything in 
+    files created in routes
+--- adding code in users.js
+
+const router = require('express').Router();
+let User = require('../models/user.model');
+
+router.route('/').get((req, res) => {
+    User.find()
+    .then(users => res.json(users))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+router.route('/add').post((req, res) => {
+    const username = req.body.username;
+
+    const newUser = new User({username});
+
+    newUser.save()
+    .then(() => res.json('User added!'))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+module.exports = router;
+
+--- in the above code first we will require express router and mongoose user.model which
+    we have created recently
+--- then it's a route handler or the endpoint that handles incoming http get request on
+    /users url path. so whereever our root url which is localhost:5000 and /users/ then the
+    following commands will happen. here the find is the mongoose method that is going 
+    to get the list of all the users from mongoDB atlas databse and it is returnd in json 
+    format.we are going to return the users from database
+--- then it's handling a incoming http post request where new user are added to database
+--- & finally it is saved and returned as new user added in database
+--- if any error it will give error status 400
+
+--- adding code in exercises.js
+
+const router = require('express').Router();
+let Exercise = require('../models/exercise.model');
+
+router.route('/').get((req, res) => {
+    Exercise.find()
+    .then(exercises => res.json(exercises))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+router.route('/add').post((req, res) => {
+    const username = req.body.username;
+    const description = req.body.description;
+    const duration = Number(req.body.duration);
+    const date = Date.parse(req.body.date);
+
+    const newExercise = new Exercise({
+        username,
+        description,
+        duration,
+        date,
+    });
+
+    newExercise.save()
+    .then(() => res.json('Exercise added!'))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+module.exports = router;
+
+--- after that we need to check whether the server api is working or not so downloaded 
+    insomnia for windows
+--- then press ctrl+n to create my request where we can start posting and getting request
+--- now type http://localhost:5000/users/add and click POST and then enter username in
+    json format and then send and then add another
+--- now type http://localhost:5000/users/ and click GET and then send and we will see 
+    that users are created with given id which was autogenerated and some more things
+--- now lets check the mongodb atlas collection page and we will find that new users are
+    created.
+
+--- now lets add some exercises and check it in mongoDB atlas collection
+
+--- now add some more api's in exercise.js
+
+const router = require('express').Router();
+let Exercise = require('../models/exercise.model');
+
+router.route('/').get((req, res) => {
+    Exercise.find()
+    .then(exercises => res.json(exercises))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+router.route('/add').post((req, res) => {
+    const username = req.body.username;
+    const description = req.body.description;
+    const duration = Number(req.body.duration);
+    const date = Date.parse(req.body.date);
+
+    const newExercise = new Exercise({
+        username,
+        description,
+        duration,
+        date,
+    });
+
+    newExercise.save()
+    .then(() => res.json('Exercise added!'))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+router.route('/:id').get((req, res) => {
+    Exercise.findById(req.params.id)
+    .then(exercise => res.json(exercise))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+router.route('/:id').delete((req, res) => {
+    Exercise.findByIdAndDelete(req.params.id)
+    .then(() => res.json('Exercise deleted.'))
+    .catch(err => res.status(400).json('Error: ' + err));
+});
+
+router.route('/update/:id').post((req, res) => {
+  Exercise.findById(req.params.id)
+    .then(exercise => {
+      exercise.username = req.body.username;
+      exercise.description = req.body.description;
+      exercise.duration = req.body.duration;
+      exercise.date = req.body.date;
+
+      exercise.save()
+        .then(() => res.json('Exercise updated!'))
+        .catch(err => res.status(400).json('Error: ' + err));
+    })
+    .catch(err => res.status(400).json('Error: ' + err));
+});    
+
+
+module.exports = router;
+
+--- now head back to insomnia to check our new api's.
+--- we checked with crud thing as we have added in our exercises.js file crud api's
+--- it all worked well
+
+*********************BACKEND COMPLETED***********************
+
+
+*********************FRONTEND STARTED************************
+
+--- REACT is javascript library by which we can divide the user interface into 
+    components and makes it easier to make it through 
+--- it has class which extends React.Component and render method which changes according to 
+    the data given to frontend
+--- it has return method which returns the element which is a list weight descripation of 
+    what to render
+--- under return method it's written in JSX style which is similar to html
+--- this is converted into html when it's goes through pre processing
+--- jsx comes with full power of js and js can be used in braces
+--- instead of class we have className
+
+*** now go back to code
+
+--- first go to public->index.html(changed title from react app to exercise tracker, the
+    main code is written in "div id=root"
+--- src->index.js (deleted css and serviceworker, imported stuffs)
+--- src->app.js (here is where the game starts, main react app that will get displayed on 
+    the page)
+
+* cd mern-exercise-hacker/
+* npm start                  //the webpage will start running on localhost:3000 
+
+--- now making some changes in app.js, we receive Hello World!
+
+import React from 'react';
+
+function App() {
+  return (
+    <div className="container">
+      Hello world!
+    </div>
+  );
+}
+
+export default App;
+
+--- this jsx which is written in app.js is being returned which gets loaded in
+    document.getElementById('root') 
+
+--- now opening new terminal
+
+*npm install bootstrap
+--- code is added in app.js (import bootstrap thing)
+
+import React from 'react';
+import "bootstrap/dist/css/bootstrap.min.css"
+
+function App() {
+  return (
+    <div className="container">
+      Hello world!
+    </div>
+  );
+}
+
+export default App;
+
+--- now, setup react router and for that
+*npm install react-router-dom
+/*react-router is going to make it easy to route different url to different react 
+components*/
+
+--- now added import statement
+
+import React from 'react';
+import{ BrowserRouter as Router, Route } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css"
+
+function App() {
+  return (
+    <div className="container">
+      Hello world!
+    </div>
+  );
+}
+
+export default App;
+
+--- now we can create a router element so now that we are importing router from 
+    react-router-dom we have to put everything what we want to be use with the
+    router inside the router element
+
+--- code is aded
+
+import React from 'react';
+import{ BrowserRouter as Router, Route } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css"
+
+function App() {
+  return (
+    <Router>
+      <Navbar />
+      <br/>
+      <Route path="/" exact component={ExercisesList} />
+      <Route path="/edit/:id" component={EditExercise} />
+      <Route path="/create" component={CreateExercise} />
+      <Route path="/user" component={CreateUser} />
+    </Router>
+  );
+}
+
+export default App;
+
+--- in the above code react router helps us map specific url paths to differnet 
+    components that will load on the page
+--- we have to create those components into differnt files
+--- but first lets import the file or component in app.js, and some code is added
+
+import React from 'react';
+import{ BrowserRouter as Router, Route } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css"
+
+import Navbar from "./components/navbar.component";
+import ExercisesList from "./components/exercises-list.component";
+import EditExercise from "./components/edit-exercise.component";
+import CreateExercise from "./components/create-exercise.component";
+import CreateUser from "./components/create-user.component";
+
+function App() {
+  return (
+    <Router>
+      <Navbar />
+      <br/>
+      <Route path="/" exact component={ExercisesList} />
+      <Route path="/edit/:id" component={EditExercise} />
+      <Route path="/create" component={CreateExercise} />
+      <Route path="/user" component={CreateUser} />
+    </Router>
+  );
+}
+
+export default App;
+
+--- now create a folder in src->component
+--- five component files added to component
+
+--- navbar.component.js
+
+import React, { Component } from 'react';
+import { Link } from 'react-router-dom';
+
+export default class Navbar extends Component {
+
+  render() {
+    return (
+      <nav className="navbar navbar-dark bg-dark navbar-expand-lg">
+        <Link to="/" className="navbar-brand">ExcerTracker</Link>
+        <div className="collpase navbar-collapse">
+        <ul className="navbar-nav mr-auto">
+          <li className="navbar-item">
+          <Link to="/" className="nav-link">Exercises</Link>
+          </li>
+          <li className="navbar-item">
+          <Link to="/create" className="nav-link">Create Exercise Log</Link>
+          </li>
+          <li className="navbar-item">
+          <Link to="/user" className="nav-link">Create User</Link>
+          </li>
+        </ul>
+        </div>
+      </nav>
+    );
+  }
+}
+
+--- exercises-list.component.js
+
+import React, { Component } from 'react';
+
+
+export default class ExercisesList extends Component {
+
+
+  render() {
+    return (
+      <div>
+        <p>You are on the Exercises List component!</p>
+      </div>
+    )
+  }
+}
+
+--- edit-exercise.component.js
+
+import React, { Component } from 'react';
+
+
+export default class EditExercises extends Component {
+
+
+  render() {
+    return (
+      <div>
+        <p>You are on the Edit Exercises component!</p>
+      </div>
+    )
+  }
+}
+
+--- create-exercise.component.js
+
+import React, { Component } from 'react';
+
+
+export default class CreateExercises extends Component {
+
+
+  render() {
+    return (
+      <div>
+        <p>You are on the Create Exercises component!</p>
+      </div>
+    )
+  }
+}
+
+--- create-user.component.js
+
+import React, { Component } from 'react';
+
+
+export default class CreateUsers extends Component {
+
+
+  render() {
+    return (
+      <div>
+        <p>You are on the Create Users component!</p>
+      </div>
+    )
+  }
+}
+
+--- then we made some changes in create-exercise.component.js
+
+import React, { Component } from 'react';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+
+
+export default class CreateExercises extends Component {
+    constructor(props) {
+        super(props);
+
+        this.onChangeUsername = this.onChangeUsername.bind(this);
+        this.onChangeDescription = this.onChangeDescription.bind(this);
+        this.onChangeDuration = this.onChangeDuration.bind(this);
+        this.onChangeDate = this.onChangeDate.bind(this);
+        this.onSubmit = this.onSubmit.bind(this);
+
+
+        this.state = {
+            username: '',
+            description: '',
+            duration: 0,
+            date: new Date(),
+            users: []
+
+        }
+    }
+
+    componentDidMount() {
+        this.setState({
+            users: ['test user'],
+            username: 'test user'
+        })
+    }
+
+    onChangeUsername(e) {
+        this.setState({
+          username: e.target.value
+        });
+      }
+
+      onChangeDescription(e) {
+        this.setState({
+          description: e.target.value
+        });
+      }
+    
+      onChangeDuration(e) {
+        this.setState({
+          duration: e.target.value
+        });
+      }
+    
+      onChangeDate(date) {
+        this.setState({
+          date: date
+        });
+      }
+
+      onSubmit(e) {
+        e.preventDefault();
+    
+        const exercise = {
+          username: this.state.username,
+          description: this.state.description,
+          duration: this.state.duration,
+          date: this.state.date
+        }
+
+        console.log(exercise);
+
+        window.location ='/';
+
+    }
+
+
+  render() {
+    return (
+    <div>
+      <h3>Create New Exercise Log</h3>
+      <form onSubmit={this.onSubmit}>
+        <div className="form-group"> 
+          <label>Username: </label>
+          <select ref="userInput"
+              required
+              className="form-control"
+              value={this.state.username}
+              onChange={this.onChangeUsername}>
+              {
+                this.state.users.map(function(user) {
+                  return <option 
+                    key={user}
+                    value={user}>{user}
+                    </option>;
+                })
+              }
+          </select>
+        </div>
+        <div className="form-group"> 
+          <label>Description: </label>
+          <input  type="text"
+              required
+              className="form-control"
+              value={this.state.description}
+              onChange={this.onChangeDescription}
+              />
+        </div>
+        <div className="form-group">
+          <label>Duration (in minutes): </label>
+          <input 
+              type="text" 
+              className="form-control"
+              value={this.state.duration}
+              onChange={this.onChangeDuration}
+              />
+        </div>
+        <div className="form-group">
+          <label>Date: </label>
+          <div>
+            <DatePicker
+              selected={this.state.date}
+              onChange={this.onChangeDate}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <input type="submit" value="Create Exercise Log" className="btn btn-primary" />
+        </div>
+      </form>
+    </div>
+    )
+  }
+}
+    
+--- and in create-user.component.js
+
+import React, { Component } from 'react';
+
+
+export default class CreateUser extends Component {
+    constructor(props) {
+      super(props);
+  
+      this.onChangeUsername = this.onChangeUsername.bind(this);
+      this.onSubmit = this.onSubmit.bind(this);
+  
+      this.state = {
+        username: ''
+      }
+    }
+  
+    onChangeUsername(e) {
+      this.setState({
+        username: e.target.value
+      })
+    }
+  
+    onSubmit(e) {
+      e.preventDefault();
+  
+      const user = {
+        username: this.state.username
+      }
+  
+      console.log(user);
+
+      this.setState({
+          username: ''
+
+      })
+
+    }
+
+  
+      
+  
+    render() {
+      return (
+        <div>
+          <h3>Create New User</h3>
+          <form onSubmit={this.onSubmit}>
+            <div className="form-group"> 
+              <label>Username: </label>
+              <input  type="text"
+                  required
+                  className="form-control"
+                  value={this.state.username}
+                  onChange={this.onChangeUsername}
+                  />
+            </div>
+            <div className="form-group">
+              <input type="submit" value="Create User" className="btn btn-primary" />
+            </div>
+          </form>
+        </div>
+      )
+    }
+}
+
+--- entered some username and all and watched on console
+--- yes added datepicker by(shows calender and let us select from it)
+*npm install react-datepicker
+*************frontend ends here************
+
+*************frontend and backed connection*****************
+
+--- we are going to connect both by causing our frontend to send http request to server
+    endpoint on the backend
+--- we will use axios library, for that
+*npm install axios
+
+---some changes in code of create-user.component.js(added import for axios, and axios.post so that it could send http
+    data to backend 
+
+import React, { Component } from 'react';
+import axios from 'axios';
+
+
+export default class CreateUser extends Component {
+    constructor(props) {
+      super(props);
+  
+      this.onChangeUsername = this.onChangeUsername.bind(this);
+      this.onSubmit = this.onSubmit.bind(this);
+  
+      this.state = {
+        username: ''
+      }
+    }
+  
+    onChangeUsername(e) {
+      this.setState({
+        username: e.target.value
+      })
+    }
+  
+    onSubmit(e) {
+      e.preventDefault();
+  
+      const user = {
+        username: this.state.username
+      }
+  
+      console.log(user);
+
+      axios.post('http://localhost:5000/users/add', user)
+      .then(res => console.log(res.data));
+
+    this.setState({
+      username: ''
+    })
+  }
+
+
+  
+      
+  
+    render() {
+      return (
+        <div>
+          <h3>Create New User</h3>
+          <form onSubmit={this.onSubmit}>
+            <div className="form-group"> 
+              <label>Username: </label>
+              <input  type="text"
+                  required
+                  className="form-control"
+                  value={this.state.username}
+                  onChange={this.onChangeUsername}
+                  />
+            </div>
+            <div className="form-group">
+              <input type="submit" value="Create User" className="btn btn-primary" />
+            </div>
+          </form>
+        </div>
+      )
+    }
+}
+
+--- so it got connected and the username added in frontend gets added in mongoDB through 
+    post request
+
+---changing code in create-exercise.component.js(added axios below console.log and in 
+   componentDidMount, in this exercise is getting added to datbase via frontend & backend)
+
+import React, { Component } from 'react';
+import axios from 'axios';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+
+export default class CreateExercise extends Component {
+  constructor(props) {
+    super(props);
+
+    this.onChangeUsername = this.onChangeUsername.bind(this);
+    this.onChangeDescription = this.onChangeDescription.bind(this);
+    this.onChangeDuration = this.onChangeDuration.bind(this);
+    this.onChangeDate = this.onChangeDate.bind(this);
+    this.onSubmit = this.onSubmit.bind(this);
+
+    this.state = {
+      username: '',
+      description: '',
+      duration: 0,
+      date: new Date(),
+      users: []
+    }
+  }
+
+  componentDidMount() {
+    axios.get('http://localhost:5000/users/')
+      .then(response => {
+        if (response.data.length > 0) {
+          this.setState({
+            users: response.data.map(user => user.username),
+            username: response.data[0].username
+          })
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+
+  }
+
+  onChangeUsername(e) {
+    this.setState({
+      username: e.target.value
+    })
+  }
+
+  onChangeDescription(e) {
+    this.setState({
+      description: e.target.value
+    })
+  }
+
+  onChangeDuration(e) {
+    this.setState({
+      duration: e.target.value
+    })
+  }
+
+  onChangeDate(date) {
+    this.setState({
+      date: date
+    })
+  }
+
+  onSubmit(e) {
+    e.preventDefault();
+
+    const exercise = {
+      username: this.state.username,
+      description: this.state.description,
+      duration: this.state.duration,
+      date: this.state.date
+    }
+
+    console.log(exercise);
+
+    axios.post('http://localhost:5000/exercises/add', exercise)
+      .then(res => console.log(res.data));
+
+    window.location = '/';
+  }
+
+  render() {
+    return (
+    <div>
+      <h3>Create New Exercise Log</h3>
+      <form onSubmit={this.onSubmit}>
+        <div className="form-group"> 
+          <label>Username: </label>
+          <select ref="userInput"
+              required
+              className="form-control"
+              value={this.state.username}
+              onChange={this.onChangeUsername}>
+              {
+                this.state.users.map(function(user) {
+                  return <option 
+                    key={user}
+                    value={user}>{user}
+                    </option>;
+                })
+              }
+          </select>
+        </div>
+        <div className="form-group"> 
+          <label>Description: </label>
+          <input  type="text"
+              required
+              className="form-control"
+              value={this.state.description}
+              onChange={this.onChangeDescription}
+              />
+        </div>
+        <div className="form-group">
+          <label>Duration (in minutes): </label>
+          <input 
+              type="text" 
+              className="form-control"
+              value={this.state.duration}
+              onChange={this.onChangeDuration}
+              />
+        </div>
+        <div className="form-group">
+          <label>Date: </label>
+          <div>
+            <DatePicker
+              selected={this.state.date}
+              onChange={this.onChangeDate}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <input type="submit" value="Create Exercise Log" className="btn btn-primary" />
+        </div>
+      </form>
+    </div>
+    )
+  }
+}
+
+--- updating exercises-list.components.js
+
+import React, { Component } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+
+const Exercise = props => (
+  <tr>
+    <td>{props.exercise.username}</td>
+    <td>{props.exercise.description}</td>
+    <td>{props.exercise.duration}</td>
+    <td>{props.exercise.date.substring(0,10)}</td>
+    <td>
+      <Link to={"/edit/"+props.exercise._id}>edit</Link> | <a href="#" onClick={() => { props.deleteExercise(props.exercise._id) }}>delete</a>
+    </td>
+  </tr>
+)
+
+export default class ExercisesList extends Component {
+  constructor(props) {
+    super(props);
+
+    this.deleteExercise = this.deleteExercise.bind(this)
+
+    this.state = {exercises: []};
+  }
+
+  componentDidMount() {
+    axios.get('http://localhost:5000/exercises/')
+      .then(response => {
+        this.setState({ exercises: response.data })
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+  }
+
+  deleteExercise(id) {
+    axios.delete('http://localhost:5000/exercises/'+id)
+      .then(response => { console.log(response.data)});
+
+    this.setState({
+      exercises: this.state.exercises.filter(el => el._id !== id)
+    })
+  }
+
+  exerciseList() {
+    return this.state.exercises.map(currentexercise => {
+      return <Exercise exercise={currentexercise} deleteExercise={this.deleteExercise} key={currentexercise._id}/>;
+    })
+  }
+
+  render() {
+    return (
+      <div>
+        <h3>Logged Exercises</h3>
+        <table className="table">
+          <thead className="thead-light">
+            <tr>
+              <th>Username</th>
+              <th>Description</th>
+              <th>Duration</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            { this.exerciseList() }
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+}
+
+
+--- in the above code we have two components-ExerciseList & Exercise where Exercise is 
+    functional component and ExerciseList is class component
+--- functional component lacks state method, componentDidMount lifecycle method, it only accepts props and return jsx
+
+--- updating edit-exercise.component.js
+
+import React, { Component } from 'react';
+import axios from 'axios';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+
+export default class EditExercise extends Component {
+  constructor(props) {
+    super(props);
+
+    this.onChangeUsername = this.onChangeUsername.bind(this);
+    this.onChangeDescription = this.onChangeDescription.bind(this);
+    this.onChangeDuration = this.onChangeDuration.bind(this);
+    this.onChangeDate = this.onChangeDate.bind(this);
+    this.onSubmit = this.onSubmit.bind(this);
+
+    this.state = {
+      username: '',
+      description: '',
+      duration: 0,
+      date: new Date(),
+      users: []
+    }
+  }
+
+  componentDidMount() {
+    axios.get('http://localhost:5000/exercises/'+this.props.match.params.id)
+      .then(response => {
+        this.setState({
+          username: response.data.username,
+          description: response.data.description,
+          duration: response.data.duration,
+          date: new Date(response.data.date)
+        })   
+      })
+      .catch(function (error) {
+        console.log(error);
+      })
+
+    axios.get('http://localhost:5000/users/')
+      .then(response => {
+        if (response.data.length > 0) {
+          this.setState({
+            users: response.data.map(user => user.username),
+          })
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+
+  }
+
+  onChangeUsername(e) {
+    this.setState({
+      username: e.target.value
+    })
+  }
+
+  onChangeDescription(e) {
+    this.setState({
+      description: e.target.value
+    })
+  }
+
+  onChangeDuration(e) {
+    this.setState({
+      duration: e.target.value
+    })
+  }
+
+  onChangeDate(date) {
+    this.setState({
+      date: date
+    })
+  }
+
+  onSubmit(e) {
+    e.preventDefault();
+
+    const exercise = {
+      username: this.state.username,
+      description: this.state.description,
+      duration: this.state.duration,
+      date: this.state.date
+    }
+
+    console.log(exercise);
+
+    axios.post('http://localhost:5000/exercises/update/' + this.props.match.params.id, exercise)
+      .then(res => console.log(res.data));
+
+    window.location = '/';
+  }
+
+  render() {
+    return (
+    <div>
+      <h3>Edit Exercise Log</h3>
+      <form onSubmit={this.onSubmit}>
+        <div className="form-group"> 
+          <label>Username: </label>
+          <select ref="userInput"
+              required
+              className="form-control"
+              value={this.state.username}
+              onChange={this.onChangeUsername}>
+              {
+                this.state.users.map(function(user) {
+                  return <option 
+                    key={user}
+                    value={user}>{user}
+                    </option>;
+                })
+              }
+          </select>
+        </div>
+        <div className="form-group"> 
+          <label>Description: </label>
+          <input  type="text"
+              required
+              className="form-control"
+              value={this.state.description}
+              onChange={this.onChangeDescription}
+              />
+        </div>
+        <div className="form-group">
+          <label>Duration (in minutes): </label>
+          <input 
+              type="text" 
+              className="form-control"
+              value={this.state.duration}
+              onChange={this.onChangeDuration}
+              />
+        </div>
+        <div className="form-group">
+          <label>Date: </label>
+          <div>
+            <DatePicker
+              selected={this.state.date}
+              onChange={this.onChangeDate}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <input type="submit" value="Edit Exercise Log" className="btn btn-primary" />
+        </div>
+      </form>
+    </div>
+    )
+  }
+}
+
+--- so going back to the app and checking the progress
+
+
+
+***********it was a nice 13 hour long continuous work, enjoyed this****************
+
+
+
+
+
+     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
